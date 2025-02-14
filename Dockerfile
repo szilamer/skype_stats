@@ -48,6 +48,9 @@ RUN mkdir -p /app/pw-browsers && \
 # Alkalmazás fájlok másolása
 COPY . .
 
+# Port beállítása
+ENV PORT=10000
+
 # Xvfb és alkalmazás indítása
 RUN chmod +x /app/start.sh
 

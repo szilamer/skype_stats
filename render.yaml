@@ -1,17 +1,13 @@
 services:
-  - type: worker
-    name: skype-stats
+  - type: web
+    name: skype-stats-api
     env: docker
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: SKYPE_USERNAME
-        sync: false
-      - key: SKYPE_PASSWORD
-        sync: false
-    plan: starter
-    buildCommand: pip install -r requirements.txt && playwright install chromium && playwright install-deps chromium
-    startCommand: python skype_reader.py
+      - key: PORT
+        value: 10000
     scaling:
       minInstances: 1
       maxInstances: 1
+    healthCheckPath: /health
     autoDeploy: false 

@@ -12,5 +12,5 @@ if [ ! -d "/app/pw-browsers/chromium-1105" ]; then
     playwright install chromium
 fi
 
-# Python alkalmazás indítása
-python skype_reader.py 
+# API indítása
+uvicorn api:app --host 0.0.0.0 --port $PORT 
