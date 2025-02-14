@@ -112,7 +112,8 @@ class AsyncSkypeReader:
                     print("HIBA: A kontextus objektum None értékű!")
                     return False
                 
-                print(f"Aktív oldalak száma a kontextusban: {len(self.context.pages)}")
+                pages = await self.context.pages()
+                print(f"Aktív oldalak száma a kontextusban: {len(pages)}")
                 
             except Exception as e:
                 print(f"HIBA a kontextus létrehozása során: {str(e)}")
