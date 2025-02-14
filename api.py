@@ -32,13 +32,6 @@ class AsyncSkypeReader:
             self.playwright = await async_playwright().start()
             print("Playwright sikeresen inicializálva")
             
-            # Böngésző útvonalának ellenőrzése és telepítése
-            print("Böngésző telepítése...")
-            import subprocess
-            subprocess.run(['playwright', 'install', 'chromium'], check=True)
-            subprocess.run(['playwright', 'install-deps', 'chromium'], check=True)
-            print("Böngésző telepítése kész")
-            
             print("Böngésző indítása...")
             # Böngésző indítása headless módban
             self.browser = await self.playwright.chromium.launch(
@@ -59,6 +52,8 @@ class AsyncSkypeReader:
                     '--disable-features=IsolateOrigins,site-per-process'
                 ]
             )
+            if not self.browser:
+                raise Exception("Nem sikerült elindítani a böngészőt")
             print("Böngésző sikeresen elindítva")
             
             print("Kontextus létrehozása...")
@@ -73,11 +68,15 @@ class AsyncSkypeReader:
                     'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
                 }
             )
+            if not self.context:
+                raise Exception("Nem sikerült létrehozni a kontextust")
             print("Kontextus sikeresen létrehozva")
             
             print("Új oldal létrehozása...")
             # Új oldal létrehozása
             self.page = await self.context.new_page()
+            if not self.page:
+                raise Exception("Nem sikerült létrehozni az oldalt")
             await self.page.set_default_timeout(120000)
             print("Oldal sikeresen létrehozva")
             
@@ -92,9 +91,9 @@ class AsyncSkypeReader:
             
         except Exception as e:
             print(f"Hiba a böngésző inicializálása során: {str(e)}")
-            if self.playwright:
-                await self.playwright.stop()
-            raise
+            # Explicit módon bezárjuk az erőforrásokat hiba esetén
+            await self.close()
+            return False
     
     async def login(self, username, password):
         try:
@@ -422,7 +421,13 @@ async def check_messages(credentials: List[SkypeCredentials]):
             setup_success = await reader.setup()
             
             if not setup_success:
-                raise Exception("Nem sikerült inicializálni a böngészőt")
+                results.append(SkypeStats(
+                    email=cred.email,
+                    total_messages=0,
+                    unread_messages=0,
+                    error="Nem sikerült inicializálni a böngészőt"
+                ))
+                continue
             
             login_success = await reader.login(cred.email, cred.password)
             if login_success:
