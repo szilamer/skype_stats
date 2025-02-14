@@ -62,54 +62,54 @@ class SkypeReader:
     def login(self, username, password):
         try:
             print("Skype weboldal betöltése...")
-            self.page.goto("https://web.skype.com", wait_until="networkidle")
-            time.sleep(5)
+            self.page.goto("https://web.skype.com", wait_until="networkidle", timeout=120000)
+            time.sleep(10)
             
             print("Várakozás a bejelentkezési mezőre...")
-            self.page.wait_for_selector('input[name="loginfmt"]', timeout=60000)
+            self.page.wait_for_selector('input[name="loginfmt"]', timeout=120000)
             print("Email cím megadása...")
             self.page.fill('input[name="loginfmt"]', username)
-            time.sleep(1)
+            time.sleep(2)
             
             print("Következő gomb kattintása...")
             self.page.click('#idSIButton9')
-            time.sleep(2)
+            time.sleep(5)
             
             print("Várakozás a jelszó mezőre...")
-            self.page.wait_for_selector('input[name="passwd"]', timeout=60000)
+            self.page.wait_for_selector('input[name="passwd"]', timeout=120000)
             print("Jelszó megadása...")
             self.page.fill('input[name="passwd"]', password)
-            time.sleep(1)
+            time.sleep(2)
             
             print("Bejelentkezés gomb kattintása...")
             self.page.click('#idSIButton9')
-            time.sleep(3)
+            time.sleep(5)
             
             print("Várakozás a 'Bejelentkezve maradás' ablakra...")
             try:
-                time.sleep(5)
-                checkbox = self.page.wait_for_selector('[name="DontShowAgain"]', timeout=10000)
+                time.sleep(10)
+                checkbox = self.page.wait_for_selector('[name="DontShowAgain"]', timeout=30000)
                 if checkbox:
                     print("Checkbox megtalálva, kattintás...")
                     checkbox.click()
-                    time.sleep(1)
+                    time.sleep(2)
                     self.page.keyboard.press('Enter')
-                    time.sleep(5)
+                    time.sleep(10)
             except:
                 print("Nem található 'Bejelentkezve maradás' ablak")
             
             print("Várakozás a főoldal betöltésére...")
-            time.sleep(20)
+            time.sleep(30)
             
             # Várjuk meg, hogy a chat lista megjelenjen
-            chat_list = self.page.wait_for_selector('div[role="list"]', timeout=30000)
+            chat_list = self.page.wait_for_selector('div[role="list"]', timeout=120000)
             if not chat_list:
                 print("Nem található chat lista")
                 return False
                 
             print("Oldal frissítése...")
-            self.page.reload(wait_until="networkidle")
-            time.sleep(10)
+            self.page.reload(wait_until="networkidle", timeout=120000)
+            time.sleep(20)
             
             return True
             

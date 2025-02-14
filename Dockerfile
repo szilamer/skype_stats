@@ -37,6 +37,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Playwright böngésző telepítése
 RUN playwright install chromium --with-deps
+RUN playwright install-deps
 
 # Alkalmazás fájlok másolása
 COPY . .
@@ -44,6 +45,11 @@ COPY . .
 # Környezeti változók beállítása
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
 
-# Xvfb indítása és alkalmazás futtatása
-CMD Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 & python skype_reader.py 
+# Xvfb és alkalmazás indítása
+RUN mkdir -p /app/pw-browsers
+COPY start.sh /app/
+RUN chmod +x /app/start.sh
+
+CMD ["/app/start.sh"] 
