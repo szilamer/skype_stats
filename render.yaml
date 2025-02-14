@@ -1,0 +1,13 @@
+services:
+  - type: worker
+    name: skype-stats
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SKYPE_USERNAME
+        sync: false
+      - key: SKYPE_PASSWORD
+        sync: false
+    scaling:
+      minInstances: 1
+      maxInstances: 1 

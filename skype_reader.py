@@ -22,17 +22,22 @@ class SkypeReader:
                     '--disable-extensions',
                     '--disable-notifications',
                     '--disable-gpu',  # GPU kikapcsolása headless módban
-                    '--window-size=1920,1080'
+                    '--window-size=1920,1080',
+                    '--disable-setuid-sandbox',
+                    '--single-process'  # Egyetlen folyamat használata
                 ]
             )
             
             # Új kontextus létrehozása egyedi beállításokkal
             self.context = self.browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',  # Linux user agent
+                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                 ignore_https_errors=True,
                 java_script_enabled=True,
-                bypass_csp=True
+                bypass_csp=True,
+                extra_http_headers={
+                    'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
+                }
             )
             
             # Új oldal létrehozása
