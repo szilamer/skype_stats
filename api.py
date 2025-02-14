@@ -73,21 +73,27 @@ class AsyncSkypeReader:
             print("Kontextus sikeresen létrehozva")
             
             print("Új oldal létrehozása...")
-            # Új oldal létrehozása
-            self.page = await self.context.new_page()
-            if not self.page:
-                raise Exception("Nem sikerült létrehozni az oldalt")
-            await self.page.set_default_timeout(120000)
-            print("Oldal sikeresen létrehozva")
-            
-            # JavaScript kód injektálása
-            await self.page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-            """)
-            print("Setup sikeresen befejezve")
-            return True
+            try:
+                # Új oldal létrehozása
+                self.page = await self.context.new_page()
+                if not self.page:
+                    raise Exception("Nem sikerült létrehozni az oldalt")
+                
+                # Timeout és egyéb beállítások
+                await self.page.set_default_timeout(120000)
+                await self.page.set_viewport_size({"width": 1920, "height": 1080})
+                
+                # JavaScript kód injektálása
+                await self.page.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                """)
+                print("Oldal sikeresen létrehozva")
+                return True
+            except Exception as e:
+                print(f"Hiba az oldal létrehozása során: {str(e)}")
+                return False
             
         except Exception as e:
             print(f"Hiba a böngésző inicializálása során: {str(e)}")
