@@ -13,6 +13,14 @@ class SkypeReader:
     def setup_browser(self):
         try:
             # Böngésző indítása headless módban
+            browser_path = os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome')
+            print(f"Böngésző útvonala: {browser_path}")
+            
+            if not os.path.exists(browser_path):
+                print("Böngésző telepítése...")
+                import subprocess
+                subprocess.run(['playwright', 'install', 'chromium'], check=True)
+            
             self.browser = self.playwright.chromium.launch(
                 headless=True,  # Headless mód bekapcsolása
                 args=[

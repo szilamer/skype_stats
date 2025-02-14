@@ -35,21 +35,20 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright böngésző telepítése
-RUN playwright install chromium --with-deps
-RUN playwright install-deps
-
-# Alkalmazás fájlok másolása
-COPY . .
-
 # Környezeti változók beállítása
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
 
+# Playwright böngésző telepítése
+RUN mkdir -p /app/pw-browsers && \
+    playwright install --with-deps chromium && \
+    playwright install chromium
+
+# Alkalmazás fájlok másolása
+COPY . .
+
 # Xvfb és alkalmazás indítása
-RUN mkdir -p /app/pw-browsers
-COPY start.sh /app/
 RUN chmod +x /app/start.sh
 
 CMD ["/app/start.sh"] 
