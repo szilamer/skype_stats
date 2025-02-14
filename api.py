@@ -28,17 +28,18 @@ class AsyncSkypeReader:
     
     async def setup(self):
         try:
+            print("Playwright inicializálása...")
             self.playwright = await async_playwright().start()
+            print("Playwright sikeresen inicializálva")
             
-            # Böngésző útvonalának ellenőrzése
-            browser_path = os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome')
-            print(f"Böngésző útvonala: {browser_path}")
+            # Böngésző útvonalának ellenőrzése és telepítése
+            print("Böngésző telepítése...")
+            import subprocess
+            subprocess.run(['playwright', 'install', 'chromium'], check=True)
+            subprocess.run(['playwright', 'install-deps', 'chromium'], check=True)
+            print("Böngésző telepítése kész")
             
-            if not os.path.exists(browser_path):
-                print("Böngésző telepítése...")
-                import subprocess
-                subprocess.run(['playwright', 'install', 'chromium'], check=True)
-            
+            print("Böngésző indítása...")
             # Böngésző indítása headless módban
             self.browser = await self.playwright.chromium.launch(
                 headless=True,
@@ -58,7 +59,9 @@ class AsyncSkypeReader:
                     '--disable-features=IsolateOrigins,site-per-process'
                 ]
             )
+            print("Böngésző sikeresen elindítva")
             
+            print("Kontextus létrehozása...")
             # Új kontextus létrehozása
             self.context = await self.browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
@@ -70,10 +73,13 @@ class AsyncSkypeReader:
                     'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
                 }
             )
+            print("Kontextus sikeresen létrehozva")
             
+            print("Új oldal létrehozása...")
             # Új oldal létrehozása
             self.page = await self.context.new_page()
             await self.page.set_default_timeout(120000)
+            print("Oldal sikeresen létrehozva")
             
             # JavaScript kód injektálása
             await self.page.add_init_script("""
@@ -81,9 +87,13 @@ class AsyncSkypeReader:
                     get: () => undefined
                 });
             """)
+            print("Setup sikeresen befejezve")
+            return True
             
         except Exception as e:
             print(f"Hiba a böngésző inicializálása során: {str(e)}")
+            if self.playwright:
+                await self.playwright.stop()
             raise
     
     async def login(self, username, password):
@@ -375,13 +385,30 @@ class AsyncSkypeReader:
         """
     
     async def close(self):
-        print("Böngésző bezárása...")
-        if self.context:
-            await self.context.close()
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
+        try:
+            print("Böngésző bezárása...")
+            if self.context:
+                try:
+                    await self.context.close()
+                    print("Kontextus sikeresen bezárva")
+                except Exception as e:
+                    print(f"Hiba a kontextus bezárása során: {str(e)}")
+            
+            if self.browser:
+                try:
+                    await self.browser.close()
+                    print("Böngésző sikeresen bezárva")
+                except Exception as e:
+                    print(f"Hiba a böngésző bezárása során: {str(e)}")
+            
+            if self.playwright:
+                try:
+                    await self.playwright.stop()
+                    print("Playwright sikeresen leállítva")
+                except Exception as e:
+                    print(f"Hiba a Playwright leállítása során: {str(e)}")
+        except Exception as e:
+            print(f"Általános hiba a bezárás során: {str(e)}")
 
 @app.post("/check-messages", response_model=List[SkypeStats])
 async def check_messages(credentials: List[SkypeCredentials]):
@@ -392,7 +419,10 @@ async def check_messages(credentials: List[SkypeCredentials]):
         try:
             print(f"Bejelentkezés a következő fiókkal: {cred.email}")
             reader = AsyncSkypeReader()
-            await reader.setup()
+            setup_success = await reader.setup()
+            
+            if not setup_success:
+                raise Exception("Nem sikerült inicializálni a böngészőt")
             
             login_success = await reader.login(cred.email, cred.password)
             if login_success:
