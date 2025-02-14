@@ -33,72 +33,67 @@ class AsyncSkypeReader:
             print("Playwright sikeresen inicializálva")
             
             print("Böngésző indítása...")
-            # Böngésző indítása headless módban
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                args=[
-                    '--disable-dev-shm-usage',
-                    '--no-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-extensions',
-                    '--disable-notifications',
-                    '--disable-gpu',
-                    '--window-size=1920,1080',
-                    '--disable-setuid-sandbox',
-                    '--single-process',
-                    '--no-zygote',
-                    '--disable-accelerated-2d-canvas',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ]
-            )
-            if not self.browser:
-                raise Exception("Nem sikerült elindítani a böngészőt")
-            print("Böngésző sikeresen elindítva")
+            try:
+                self.browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu'
+                    ]
+                )
+                print("Böngésző sikeresen elindítva")
+            except Exception as e:
+                print(f"Hiba a böngésző indítása során: {str(e)}")
+                if self.playwright:
+                    await self.playwright.stop()
+                return False
             
             print("Kontextus létrehozása...")
-            # Új kontextus létrehozása
-            self.context = await self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                ignore_https_errors=True,
-                java_script_enabled=True,
-                bypass_csp=True,
-                extra_http_headers={
-                    'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
-                }
-            )
-            if not self.context:
-                raise Exception("Nem sikerült létrehozni a kontextust")
-            print("Kontextus sikeresen létrehozva")
+            try:
+                self.context = await self.browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                )
+                print("Kontextus sikeresen létrehozva")
+            except Exception as e:
+                print(f"Hiba a kontextus létrehozása során: {str(e)}")
+                await self.browser.close()
+                await self.playwright.stop()
+                return False
             
             print("Új oldal létrehozása...")
             try:
-                # Új oldal létrehozása
-                self.page = await self.context.new_page()
-                if not self.page:
+                # Ellenőrizzük, hogy a kontextus létezik-e
+                if not self.context:
+                    raise Exception("A kontextus nem létezik")
+                
+                # Próbáljuk létrehozni az oldalt
+                page = await self.context.new_page()
+                if not page:
                     raise Exception("Nem sikerült létrehozni az oldalt")
                 
-                # Timeout és egyéb beállítások
+                # Ha sikerült létrehozni az oldalt, akkor állítsuk be
+                self.page = page
                 await self.page.set_default_timeout(120000)
-                await self.page.set_viewport_size({"width": 1920, "height": 1080})
-                
-                # JavaScript kód injektálása
-                await self.page.add_init_script("""
-                    Object.defineProperty(navigator, 'webdriver', {
-                        get: () => undefined
-                    });
-                """)
                 print("Oldal sikeresen létrehozva")
                 return True
+                
             except Exception as e:
                 print(f"Hiba az oldal létrehozása során: {str(e)}")
+                if self.context:
+                    await self.context.close()
+                if self.browser:
+                    await self.browser.close()
+                if self.playwright:
+                    await self.playwright.stop()
                 return False
             
         except Exception as e:
-            print(f"Hiba a böngésző inicializálása során: {str(e)}")
-            # Explicit módon bezárjuk az erőforrásokat hiba esetén
-            await self.close()
+            print(f"Végzetes hiba a setup során: {str(e)}")
+            if self.playwright:
+                await self.playwright.stop()
             return False
     
     async def login(self, username, password):
