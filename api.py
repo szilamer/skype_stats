@@ -75,8 +75,11 @@ class AsyncSkypeReader:
                     return False
                     
                 print("Böngésző verzió információk:")
-                version = self.browser.version
-                print(f"- Verzió: {version}")
+                try:
+                    version = await self.browser.version()
+                    print(f"- Verzió: {version}")
+                except Exception as e:
+                    print(f"- Verzió lekérdezése sikertelen: {str(e)}")
                 
                 contexts = self.browser.contexts
                 print(f"Aktív kontextusok száma: {len(contexts)}")
@@ -109,8 +112,7 @@ class AsyncSkypeReader:
                     print("HIBA: A kontextus objektum None értékű!")
                     return False
                 
-                pages = await self.context.pages()
-                print(f"Aktív oldalak száma a kontextusban: {len(pages)}")
+                print(f"Aktív oldalak száma a kontextusban: {len(self.context.pages)}")
                 
             except Exception as e:
                 print(f"HIBA a kontextus létrehozása során: {str(e)}")
