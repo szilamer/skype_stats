@@ -388,12 +388,14 @@ async def check_messages(credentials: List[SkypeCredentials]):
     results = []
     
     for cred in credentials:
+        reader = None
         try:
             print(f"Bejelentkezés a következő fiókkal: {cred.email}")
             reader = AsyncSkypeReader()
             await reader.setup()
             
-            if await reader.login(cred.email, cred.password):
+            login_success = await reader.login(cred.email, cred.password)
+            if login_success:
                 stats = await reader.get_message_stats()
                 if stats:
                     oldest_date = None
@@ -424,15 +426,20 @@ async def check_messages(credentials: List[SkypeCredentials]):
                     error="Sikertelen bejelentkezés"
                 ))
             
-            await reader.close()
-            
         except Exception as e:
+            print(f"Hiba történt: {str(e)}")
             results.append(SkypeStats(
                 email=cred.email,
                 total_messages=0,
                 unread_messages=0,
                 error=str(e)
             ))
+        finally:
+            if reader:
+                try:
+                    await reader.close()
+                except Exception as e:
+                    print(f"Hiba a böngésző bezárása során: {str(e)}")
     
     return results
 
