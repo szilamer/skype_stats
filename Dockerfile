@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libcairo2 \
     libasound2 \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # Munkamappa létrehozása
@@ -35,8 +36,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Playwright böngésző telepítése
-RUN playwright install chromium
-RUN playwright install-deps chromium
+RUN playwright install chromium --with-deps
 
 # Alkalmazás fájlok másolása
 COPY . .
@@ -45,5 +45,5 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 
-# Alkalmazás futtatása
-CMD ["python", "skype_reader.py"] 
+# Xvfb indítása és alkalmazás futtatása
+CMD Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 & python skype_reader.py 

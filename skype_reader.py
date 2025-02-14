@@ -24,7 +24,11 @@ class SkypeReader:
                     '--disable-gpu',  # GPU kikapcsolása headless módban
                     '--window-size=1920,1080',
                     '--disable-setuid-sandbox',
-                    '--single-process'  # Egyetlen folyamat használata
+                    '--single-process',  # Egyetlen folyamat használata
+                    '--no-zygote',  # Zygote process kikapcsolása
+                    '--disable-accelerated-2d-canvas',  # 2D gyorsítás kikapcsolása
+                    '--disable-web-security',  # Biztonsági korlátozások kikapcsolása
+                    '--disable-features=IsolateOrigins,site-per-process'  # Process isolation kikapcsolása
                 ]
             )
             
@@ -42,7 +46,7 @@ class SkypeReader:
             
             # Új oldal létrehozása
             self.page = self.context.new_page()
-            self.page.set_default_timeout(60000)
+            self.page.set_default_timeout(120000)  # Timeout növelése 120 másodpercre
             
             # JavaScript kód injektálása az automatizálás elrejtéséhez
             self.page.add_init_script("""
