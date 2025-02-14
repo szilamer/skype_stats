@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  skype-reader:
+    build: .
+    container_name: skype-reader
+    environment:
+      - SKYPE_USERNAME=${SKYPE_USERNAME}
+      - SKYPE_PASSWORD=${SKYPE_PASSWORD}
+    volumes:
+      - ./debug_page.html:/app/debug_page.html
+      - ./debug_info.json:/app/debug_info.json
+    restart: "no" 
