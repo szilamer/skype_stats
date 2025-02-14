@@ -26,6 +26,9 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libasound2 \
     xvfb \
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Munkamappa létrehozása
@@ -52,6 +55,4 @@ COPY . .
 ENV PORT=10000
 
 # Xvfb és alkalmazás indítása
-RUN chmod +x /app/start.sh
-
-CMD ["/app/start.sh"] 
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 & sleep 5 && uvicorn api:app --host 0.0.0.0 --port $PORT"] 

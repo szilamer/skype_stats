@@ -75,7 +75,7 @@ class AsyncSkypeReader:
                     return False
                     
                 print("Böngésző verzió információk:")
-                version = await self.browser.version()
+                version = self.browser.version
                 print(f"- Verzió: {version}")
                 
                 contexts = self.browser.contexts
