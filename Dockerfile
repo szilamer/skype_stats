@@ -29,8 +29,6 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator3-1 \
     xdg-utils \
-    # Firefox függőségek
-    firefox-esr \
     # Új függőségek
     libxtst6 \
     libxss1 \
@@ -52,10 +50,10 @@ ENV DISPLAY=:99
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 
-# Playwright böngésző telepítése
+# Playwright böngésző telepítése előre
 RUN mkdir -p /app/pw-browsers && \
-    playwright install --with-deps firefox && \
-    playwright install firefox
+    playwright install chromium && \
+    playwright install-deps chromium
 
 # Alkalmazás fájlok másolása
 COPY . .

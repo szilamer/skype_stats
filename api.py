@@ -26,14 +26,6 @@ class SkypeReader:
     def setup_browser(self):
         try:
             # Böngésző indítása headless módban
-            browser_path = os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome')
-            print(f"Böngésző útvonala: {browser_path}")
-            
-            if not os.path.exists(browser_path):
-                print("Böngésző telepítése...")
-                import subprocess
-                subprocess.run(['playwright', 'install', 'chromium'], check=True)
-            
             self.browser = self.playwright.chromium.launch(
                 headless=True,  # Headless mód bekapcsolása
                 args=[
@@ -306,9 +298,13 @@ class SkypeReader:
                 
                 // Keressük az olvasatlan üzenet jelzőket
                 const unreadIndicators = [
-                    '.css-1dbjc4n.r-1awozwy.r-1mlx99i.r-1867qdf.r-1yadl64.r-1777fci.r-285fr0.r-s1qlax',
-                    '.css-901oao.r-jwli3a.r-1bhw0zn.r-10x49cs.r-b88u0q.r-1cwl3u0',
-                    '[role="status"]'
+                    '[role="status"]',  // Elsődleges jelző
+                    '.css-1dbjc4n.r-1awozwy.r-1mlx99i.r-1867qdf.r-1yadl64.r-1777fci.r-285fr0.r-s1qlax',  // Alternatív jelző 1
+                    '.css-901oao.r-jwli3a.r-1bhw0zn.r-10x49cs.r-b88u0q.r-1cwl3u0',  // Alternatív jelző 2
+                    '.css-1dbjc4n.r-1awozwy.r-1mlx99i.r-1867qdf.r-1yadl64.r-1777fci.r-285fr0',  // Új jelző 1
+                    '.css-901oao.r-jwli3a.r-1bhw0zn.r-10x49cs.r-b88u0q',  // Új jelző 2
+                    '[aria-label*="olvasatlan"]',  // Magyar nyelvű jelző
+                    '[aria-label*="unread"]'  // Angol nyelvű jelző
                 ];
                 
                 // Keressük az olvasatlan üzenet jelzőket
@@ -325,31 +321,53 @@ class SkypeReader:
                             
                             // Ellenőrizzük a szöveget
                             const text = indicator.textContent.trim();
-                            if (text && /^\\d+$/.test(text)) {
-                                const count = parseInt(text);
-                                if (count > 0) {
-                                    itemInfo.hasUnread = true;
-                                    itemInfo.unreadCount = count;
-                                    unreadCount = Math.max(unreadCount, count);
-                                    
-                                    // Ha van dátum és olvasatlan üzenet, frissítjük a legrégebbi dátumot
-                                    if (itemInfo.date) {
-                                        if (!oldestUnreadDate || 
-                                            (itemInfo.fullDate && (!oldestUnreadDate.fullDate || itemInfo.fullDate < oldestUnreadDate.fullDate))) {
-                                            oldestUnreadDate = {
-                                                text: itemInfo.date,
-                                                fullDate: itemInfo.fullDate
-                                            };
-                                        }
+                            console.log('Talált jelző:', {
+                                selector,
+                                text,
+                                isVisible: true,
+                                element: indicator.outerHTML
+                            });
+                            
+                            // Próbáljuk meg számként értelmezni
+                            const count = parseInt(text);
+                            if (!isNaN(count) && count > 0) {
+                                itemInfo.hasUnread = true;
+                                itemInfo.unreadCount = count;
+                                unreadCount = Math.max(unreadCount, count);
+                                
+                                // Ha van dátum és olvasatlan üzenet, frissítjük a legrégebbi dátumot
+                                if (itemInfo.date) {
+                                    if (!oldestUnreadDate || 
+                                        (itemInfo.fullDate && (!oldestUnreadDate.fullDate || itemInfo.fullDate < oldestUnreadDate.fullDate))) {
+                                        oldestUnreadDate = {
+                                            text: itemInfo.date,
+                                            fullDate: itemInfo.fullDate
+                                        };
                                     }
-                                    
-                                    console.log('Talált olvasatlan üzenet:', {
-                                        selector,
-                                        text,
-                                        count,
-                                        date: itemInfo.date,
-                                        element: indicator.outerHTML
-                                    });
+                                }
+                                
+                                console.log('Talált olvasatlan üzenet:', {
+                                    selector,
+                                    text,
+                                    count,
+                                    date: itemInfo.date,
+                                    element: indicator.outerHTML
+                                });
+                            }
+                            // Ha nincs szám, de van szöveg (pl. "olvasatlan")
+                            else if (text && (text.toLowerCase().includes('olvasatlan') || text.toLowerCase().includes('unread'))) {
+                                itemInfo.hasUnread = true;
+                                itemInfo.unreadCount = 1;  // Feltételezzük, hogy 1 olvasatlan üzenet van
+                                unreadCount = Math.max(unreadCount, 1);
+                                
+                                if (itemInfo.date) {
+                                    if (!oldestUnreadDate || 
+                                        (itemInfo.fullDate && (!oldestUnreadDate.fullDate || itemInfo.fullDate < oldestUnreadDate.fullDate))) {
+                                        oldestUnreadDate = {
+                                            text: itemInfo.date,
+                                            fullDate: itemInfo.fullDate
+                                        };
+                                    }
                                 }
                             }
                         }
