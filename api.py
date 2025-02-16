@@ -54,10 +54,13 @@ class AsyncSkypeReader:
                 print("Böngésző indítási paraméterek:")
                 launch_args = {
                     'headless': True,
+                    'executable_path': os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome'),
                     'args': [
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage'
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--disable-software-rasterizer'
                     ]
                 }
                 print(f"Launch args: {json.dumps(launch_args, indent=2)}")
