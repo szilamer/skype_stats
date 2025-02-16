@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-from playwright.async_api import async_playwright
-import asyncio
-import json
+from playwright.sync_api import sync_playwright
 import os
+import time
 
 app = FastAPI(title="Skype Üzenet Statisztika API")
 
@@ -19,311 +18,157 @@ class SkypeStats(BaseModel):
     oldest_unread_date: Optional[str] = None
     error: Optional[str] = None
 
-class AsyncSkypeReader:
+class SkypeReader:
     def __init__(self):
-        self.playwright = None
-        self.browser = None
-        self.context = None
-        self.page = None
-    
-    async def setup(self):
+        self.playwright = sync_playwright().start()
+        self.setup_browser()
+        
+    def setup_browser(self):
         try:
-            print("\n=== SETUP KEZDÉSE ===")
-            print(f"Környezeti változók:")
-            print(f"DISPLAY: {os.getenv('DISPLAY')}")
-            print(f"PLAYWRIGHT_BROWSERS_PATH: {os.getenv('PLAYWRIGHT_BROWSERS_PATH')}")
-            print(f"PWD: {os.getenv('PWD')}")
+            # Böngésző indítása headless módban
+            browser_path = os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome')
+            print(f"Böngésző útvonala: {browser_path}")
             
-            print("\n=== PLAYWRIGHT INICIALIZÁLÁSA ===")
-            try:
-                self.playwright = await async_playwright().start()
-                print(f"Playwright objektum típusa: {type(self.playwright)}")
-                print(f"Playwright objektum: {self.playwright}")
-                print("Elérhető böngészők:")
-                print(f"- Chromium: {self.playwright.chromium}")
-                print(f"- Firefox: {self.playwright.firefox}")
-                print(f"- Webkit: {self.playwright.webkit}")
-            except Exception as e:
-                print(f"HIBA a Playwright inicializálása során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                raise
+            if not os.path.exists(browser_path):
+                print("Böngésző telepítése...")
+                import subprocess
+                subprocess.run(['playwright', 'install', 'chromium'], check=True)
             
-            print("\n=== BÖNGÉSZŐ INDÍTÁSA ===")
-            try:
-                print("Böngésző indítási paraméterek:")
-                launch_args = {
-                    'headless': True,
-                    'executable_path': os.path.join(os.getenv('PLAYWRIGHT_BROWSERS_PATH', ''), 'chromium-1105/chrome-linux/chrome'),
-                    'args': [
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--disable-software-rasterizer'
-                    ]
+            self.browser = self.playwright.chromium.launch(
+                headless=True,  # Headless mód bekapcsolása
+                args=[
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-extensions',
+                    '--disable-notifications',
+                    '--disable-gpu',  # GPU kikapcsolása headless módban
+                    '--window-size=1920,1080',
+                    '--disable-setuid-sandbox',
+                    '--single-process',  # Egyetlen folyamat használata
+                    '--no-zygote',  # Zygote process kikapcsolása
+                    '--disable-accelerated-2d-canvas',  # 2D gyorsítás kikapcsolása
+                    '--disable-web-security',  # Biztonsági korlátozások kikapcsolása
+                    '--disable-features=IsolateOrigins,site-per-process'  # Process isolation kikapcsolása
+                ]
+            )
+            
+            # Új kontextus létrehozása egyedi beállításokkal
+            self.context = self.browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                ignore_https_errors=True,
+                java_script_enabled=True,
+                bypass_csp=True,
+                extra_http_headers={
+                    'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7'
                 }
-                print(f"Launch args: {json.dumps(launch_args, indent=2)}")
-                
-                print("Chromium böngésző indítása...")
-                self.browser = await self.playwright.chromium.launch(**launch_args)
-                print(f"Böngésző objektum típusa: {type(self.browser)}")
-                print(f"Böngésző objektum: {self.browser}")
-                
-                if not self.browser:
-                    print("HIBA: A böngésző objektum None értékű!")
-                    return False
-                    
-                print("Böngésző verzió információk:")
-                try:
-                    version = await self.browser.version()
-                    print(f"- Verzió: {version}")
-                except Exception as e:
-                    print(f"- Verzió lekérdezése sikertelen: {str(e)}")
-                
-                contexts = self.browser.contexts
-                print(f"Aktív kontextusok száma: {len(contexts)}")
-                
-            except Exception as e:
-                print(f"HIBA a böngésző indítása során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                if self.playwright:
-                    await self.playwright.stop()
-                return False
+            )
             
-            print("\n=== KONTEXTUS LÉTREHOZÁSA ===")
-            try:
-                print("Kontextus paraméterek:")
-                context_args = {
-                    'viewport': {'width': 1920, 'height': 1080},
-                    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    'bypass_csp': True,
-                    'ignore_https_errors': True
-                }
-                print(f"Context args: {json.dumps(context_args, indent=2)}")
-                
-                print("Új kontextus létrehozása...")
-                self.context = await self.browser.new_context(**context_args)
-                print(f"Kontextus objektum típusa: {type(self.context)}")
-                print(f"Kontextus objektum: {self.context}")
-                
-                if not self.context:
-                    print("HIBA: A kontextus objektum None értékű!")
-                    return False
-                
-                pages = await self.context.pages()
-                print(f"Aktív oldalak száma a kontextusban: {len(pages)}")
-                
-            except Exception as e:
-                print(f"HIBA a kontextus létrehozása során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                await self.browser.close()
-                await self.playwright.stop()
-                return False
+            # Új oldal létrehozása
+            self.page = self.context.new_page()
+            self.page.set_default_timeout(120000)  # Timeout növelése 120 másodpercre
             
-            print("\n=== ÚJ OLDAL LÉTREHOZÁSA ===")
-            try:
-                print("Oldal létrehozásának megkísérlése...")
-                try:
-                    print("Új oldal létrehozása a kontextusban...")
-                    self.page = await self.context.new_page()
-                    print(f"Oldal objektum típusa: {type(self.page)}")
-                    print(f"Oldal objektum: {self.page}")
-                    
-                    print("Oldal tulajdonságok:")
-                    url = self.page.url
-                    print(f"- URL: {url}")
-                    viewport = await self.page.viewport_size()
-                    print(f"- Viewport: {viewport}")
-                    
-                except Exception as page_error:
-                    print(f"HIBA az oldal létrehozása során (belső): {str(page_error)}")
-                    print(f"Hiba típusa: {type(page_error)}")
-                    print(f"Hiba részletek: {page_error.__dict__}")
-                    raise
-                
-                if not self.page:
-                    print("HIBA: Az oldal objektum None értékű!")
-                    return False
-                
-                print("Timeout beállítása...")
-                await self.page.set_default_timeout(120000)
-                print("Oldal sikeresen létrehozva és konfigurálva")
-                
-                print("\n=== SETUP BEFEJEZVE ===")
-                return True
-                
-            except Exception as e:
-                print(f"HIBA az oldal létrehozása során (külső): {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                if self.context:
-                    await self.context.close()
-                if self.browser:
-                    await self.browser.close()
-                if self.playwright:
-                    await self.playwright.stop()
-                return False
+            # JavaScript kód injektálása az automatizálás elrejtéséhez
+            self.page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+            """)
             
         except Exception as e:
-            print(f"\n=== VÉGZETES HIBA A SETUP SORÁN ===")
-            print(f"Hiba üzenet: {str(e)}")
-            print(f"Hiba típusa: {type(e)}")
-            print(f"Hiba részletek: {e.__dict__}")
-            if self.playwright:
-                await self.playwright.stop()
-            return False
-    
-    async def login(self, username, password):
+            print(f"Hiba a böngésző inicializálása során: {str(e)}")
+            raise
+        
+    def login(self, username, password):
         try:
-            print("\n=== BEJELENTKEZÉS KEZDÉSE ===")
-            print(f"Bejelentkezési adatok:")
-            print(f"- Email: {username}")
-            print(f"- Jelszó: {'*' * len(password)}")
+            print("Skype weboldal betöltése...")
+            self.page.goto("https://web.skype.com", wait_until="networkidle", timeout=120000)
+            time.sleep(10)
             
-            print("\n=== SKYPE WEBOLDAL BETÖLTÉSE ===")
-            try:
-                print("Oldal betöltése: https://web.skype.com")
-                response = await self.page.goto("https://web.skype.com", wait_until="networkidle", timeout=120000)
-                print(f"Válasz státusz: {response.status if response else 'Nincs válasz'}")
-                print(f"Jelenlegi URL: {self.page.url}")
-                await asyncio.sleep(10)
-            except Exception as e:
-                print(f"HIBA az oldal betöltése során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                return False
+            print("Várakozás a bejelentkezési mezőre...")
+            self.page.wait_for_selector('input[name="loginfmt"]', timeout=120000)
+            print("Email cím megadása...")
+            self.page.fill('input[name="loginfmt"]', username)
+            time.sleep(2)
             
-            print("\n=== BEJELENTKEZÉSI ŰRLAP KITÖLTÉSE ===")
-            try:
-                print("Várakozás a bejelentkezési mezőre...")
-                email_input = await self.page.wait_for_selector('input[name="loginfmt"]', timeout=120000)
-                print(f"Email mező megtalálva: {email_input}")
-                
-                print("Email cím megadása...")
-                await self.page.fill('input[name="loginfmt"]', username)
-                print("Email cím sikeresen megadva")
-                await asyncio.sleep(2)
-                
-                print("Következő gomb keresése...")
-                next_button = await self.page.wait_for_selector('#idSIButton9')
-                print(f"Következő gomb megtalálva: {next_button}")
-                
-                print("Következő gomb kattintása...")
-                await self.page.click('#idSIButton9')
-                print("Következő gomb sikeresen megnyomva")
-                await asyncio.sleep(5)
-                
-                print("Várakozás a jelszó mezőre...")
-                password_input = await self.page.wait_for_selector('input[name="passwd"]', timeout=120000)
-                print(f"Jelszó mező megtalálva: {password_input}")
-                
-                print("Jelszó megadása...")
-                await self.page.fill('input[name="passwd"]', password)
-                print("Jelszó sikeresen megadva")
-                await asyncio.sleep(2)
-                
-                print("Bejelentkezés gomb kattintása...")
-                await self.page.click('#idSIButton9')
-                print("Bejelentkezés gomb sikeresen megnyomva")
-                await asyncio.sleep(5)
-                
-            except Exception as e:
-                print(f"HIBA a bejelentkezési űrlap kitöltése során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                print(f"Jelenlegi URL: {self.page.url}")
-                return False
+            print("Következő gomb kattintása...")
+            self.page.click('#idSIButton9')
+            time.sleep(5)
             
-            print("\n=== BEJELENTKEZÉS UTÁNI FOLYAMAT ===")
+            print("Várakozás a jelszó mezőre...")
+            self.page.wait_for_selector('input[name="passwd"]', timeout=120000)
+            print("Jelszó megadása...")
+            self.page.fill('input[name="passwd"]', password)
+            time.sleep(2)
+            
+            print("Bejelentkezés gomb kattintása...")
+            self.page.click('#idSIButton9')
+            time.sleep(5)
+            
+            print("Várakozás a 'Bejelentkezve maradás' ablakra...")
             try:
-                print("Várakozás a 'Bejelentkezve maradás' ablakra...")
+                time.sleep(10)
+                checkbox = self.page.wait_for_selector('[name="DontShowAgain"]', timeout=30000)
+                if checkbox:
+                    print("Checkbox megtalálva, kattintás...")
+                    checkbox.click()
+                    time.sleep(2)
+                    self.page.keyboard.press('Enter')
+                    time.sleep(10)
+            except:
+                print("Nem található 'Bejelentkezve maradás' ablak")
+            
+            print("Várakozás a főoldal betöltésére...")
+            time.sleep(30)
+            
+            # Várjuk meg, hogy a chat lista megjelenjen
+            print("Chat lista keresése...")
+            chat_list = None
+            retry_count = 0
+            max_retries = 3
+            
+            while retry_count < max_retries:
                 try:
-                    await asyncio.sleep(10)
-                    checkbox = await self.page.wait_for_selector('[name="DontShowAgain"]', timeout=30000)
-                    if checkbox:
-                        print("Checkbox megtalálva, kattintás...")
-                        await checkbox.click()
-                        print("Checkbox sikeresen bepipálva")
-                        await asyncio.sleep(2)
-                        await self.page.keyboard.press('Enter')
-                        print("Enter billentyű lenyomva")
-                        await asyncio.sleep(10)
-                except Exception as e:
-                    print(f"Megjegyzés: 'Bejelentkezve maradás' ablak nem található: {str(e)}")
-                
-                print("\n=== CHAT LISTA BETÖLTÉSE ===")
-                print("Várakozás a főoldal betöltésére...")
-                await asyncio.sleep(30)
-                print(f"Jelenlegi URL: {self.page.url}")
-                
-                print("Chat lista keresése...")
-                chat_list = None
-                retry_count = 0
-                max_retries = 3
-                
-                while retry_count < max_retries:
-                    try:
-                        print(f"\nPróbálkozás {retry_count + 1}/{max_retries}...")
-                        chat_list = await self.page.wait_for_selector('div[role="list"]', timeout=60000)
-                        if chat_list:
-                            print("Chat lista megtalálva")
-                            print(f"Chat lista elem: {chat_list}")
-                            break
-                    except Exception as e:
-                        print(f"Chat lista nem található ebben a próbálkozásban: {str(e)}")
-                        print("Oldal újratöltése...")
-                        await self.page.reload(wait_until="networkidle", timeout=120000)
-                        print(f"Oldal újratöltve, jelenlegi URL: {self.page.url}")
-                        await asyncio.sleep(20)
-                        retry_count += 1
-                
-                if not chat_list:
-                    print("HIBA: Nem található chat lista több próbálkozás után sem")
-                    return False
-                
-                print("\n=== CHAT ELEMEK ELLENŐRZÉSE ===")
-                print("Oldal frissítése és várakozás a chat elemekre...")
-                await self.page.reload(wait_until="networkidle", timeout=120000)
-                await asyncio.sleep(20)
-                
-                try:
-                    print("Chat elemek keresése...")
-                    chat_items = await self.page.wait_for_selector('div[role="listitem"]', timeout=60000)
-                    if chat_items:
-                        print("Chat elemek megtalálva")
-                        print(f"Chat elem: {chat_items}")
-                        await asyncio.sleep(10)
-                except Exception as e:
-                    print(f"HIBA: Nem találhatók chat elemek: {str(e)}")
-                    print(f"Hiba típusa: {type(e)}")
-                    print(f"Hiba részletek: {e.__dict__}")
-                    return False
-                
-                print("\n=== BEJELENTKEZÉS BEFEJEZVE ===")
-                return True
-                
-            except Exception as e:
-                print(f"HIBA a bejelentkezés utáni folyamat során: {str(e)}")
-                print(f"Hiba típusa: {type(e)}")
-                print(f"Hiba részletek: {e.__dict__}")
-                print(f"Jelenlegi URL: {self.page.url}")
+                    chat_list = self.page.wait_for_selector('div[role="list"]', timeout=60000)
+                    if chat_list:
+                        print("Chat lista megtalálva")
+                        break
+                except:
+                    print(f"Chat lista nem található, újrapróbálkozás ({retry_count + 1}/{max_retries})...")
+                    self.page.reload(wait_until="networkidle", timeout=120000)
+                    time.sleep(20)
+                    retry_count += 1
+            
+            if not chat_list:
+                print("Nem található chat lista")
                 return False
+                
+            print("Oldal frissítése és várakozás a chat elemekre...")
+            self.page.reload(wait_until="networkidle", timeout=120000)
+            time.sleep(20)
+            
+            # Várjuk meg, hogy legalább egy chat elem megjelenjen
+            try:
+                print("Chat elemek keresése...")
+                chat_items = self.page.wait_for_selector('div[role="listitem"]', timeout=60000)
+                if chat_items:
+                    print("Chat elemek megtalálva")
+                    time.sleep(10)  # Várunk még, hogy minden elem betöltődjön
+            except:
+                print("Nem találhatók chat elemek")
+                return False
+            
+            return True
             
         except Exception as e:
-            print(f"\n=== VÉGZETES HIBA A BEJELENTKEZÉS SORÁN ===")
-            print(f"Hiba üzenet: {str(e)}")
-            print(f"Hiba típusa: {type(e)}")
-            print(f"Hiba részletek: {e.__dict__}")
-            print(f"Jelenlegi URL: {self.page.url if self.page else 'Nincs oldal'}")
+            print(f"Hiba történt a bejelentkezés során: {str(e)}")
             return False
-    
-    async def get_message_stats(self):
+            
+    def get_message_stats(self):
         try:
             print("Várakozás a beszélgetések betöltésére...")
-            await asyncio.sleep(20)
+            time.sleep(20)
             
             # Próbáljuk meg többször is lekérni a chat elemeket
             retry_count = 0
@@ -332,14 +177,14 @@ class AsyncSkypeReader:
             
             while retry_count < max_retries:
                 # HTML tartalom mentése debuggoláshoz
-                html_content = await self.page.content()
+                html_content = self.page.content()
                 with open(f'debug_page_{retry_count}.html', 'w', encoding='utf-8') as f:
                     f.write(html_content)
                 print(f"HTML tartalom elmentve a debug_page_{retry_count}.html fájlba")
                 
                 # JavaScript kód futtatása
                 print(f"JavaScript kód futtatása (próbálkozás {retry_count + 1}/{max_retries})...")
-                debug_info = await self.page.evaluate(self.get_messages_js_code())
+                debug_info = self.page.evaluate(self.get_messages_js_code())
                 
                 # Debug információk mentése fájlba
                 with open(f'debug_info_{retry_count}.json', 'w', encoding='utf-8') as f:
@@ -351,8 +196,8 @@ class AsyncSkypeReader:
                     break
                 
                 print("Nem találtunk chat elemeket, újrapróbálkozás...")
-                await self.page.reload(wait_until="networkidle", timeout=120000)
-                await asyncio.sleep(20)
+                self.page.reload(wait_until="networkidle", timeout=120000)
+                time.sleep(20)
                 retry_count += 1
             
             if not debug_info or debug_info['totalChats'] == 0:
@@ -368,7 +213,7 @@ class AsyncSkypeReader:
         except Exception as e:
             print(f"Hiba történt az üzenetek lekérdezése során: {str(e)}")
             return None
-    
+            
     def get_messages_js_code(self):
         return """
         () => {
@@ -523,55 +368,25 @@ class AsyncSkypeReader:
         }
         """
     
-    async def close(self):
-        try:
-            print("Böngésző bezárása...")
-            if self.context:
-                try:
-                    await self.context.close()
-                    print("Kontextus sikeresen bezárva")
-                except Exception as e:
-                    print(f"Hiba a kontextus bezárása során: {str(e)}")
-            
-            if self.browser:
-                try:
-                    await self.browser.close()
-                    print("Böngésző sikeresen bezárva")
-                except Exception as e:
-                    print(f"Hiba a böngésző bezárása során: {str(e)}")
-            
-            if self.playwright:
-                try:
-                    await self.playwright.stop()
-                    print("Playwright sikeresen leállítva")
-                except Exception as e:
-                    print(f"Hiba a Playwright leállítása során: {str(e)}")
-        except Exception as e:
-            print(f"Általános hiba a bezárás során: {str(e)}")
+    def close(self):
+        print("Böngésző bezárása...")
+        self.context.close()
+        self.browser.close()
+        self.playwright.stop()
 
 @app.post("/check-messages", response_model=List[SkypeStats])
-async def check_messages(credentials: List[SkypeCredentials]):
+def check_messages(credentials: List[SkypeCredentials]):
     results = []
     
     for cred in credentials:
         reader = None
         try:
             print(f"Bejelentkezés a következő fiókkal: {cred.email}")
-            reader = AsyncSkypeReader()
-            setup_success = await reader.setup()
+            reader = SkypeReader()
             
-            if not setup_success:
-                results.append(SkypeStats(
-                    email=cred.email,
-                    total_messages=0,
-                    unread_messages=0,
-                    error="Nem sikerült inicializálni a böngészőt"
-                ))
-                continue
-            
-            login_success = await reader.login(cred.email, cred.password)
+            login_success = reader.login(cred.email, cred.password)
             if login_success:
-                stats = await reader.get_message_stats()
+                stats = reader.get_message_stats()
                 if stats:
                     oldest_date = None
                     if stats['oldest_unread_date']:
@@ -612,12 +427,12 @@ async def check_messages(credentials: List[SkypeCredentials]):
         finally:
             if reader:
                 try:
-                    await reader.close()
+                    reader.close()
                 except Exception as e:
                     print(f"Hiba a böngésző bezárása során: {str(e)}")
     
     return results
 
 @app.get("/health")
-async def health_check():
+def health_check():
     return {"status": "ok"} 
