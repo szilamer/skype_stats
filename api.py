@@ -60,7 +60,11 @@ class AsyncSkypeReader:
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
                         '--disable-software-rasterizer',
-                        '--disable-features=VizDisplayCompositor'
+                        '--disable-features=VizDisplayCompositor',
+                        '--memory-pressure-off',
+                        '--js-flags="--max-old-space-size=4096"',
+                        '--disable-web-security',
+                        '--allow-running-insecure-content'
                     ]
                 }
                 print(f"Launch args: {json.dumps(launch_args, indent=2)}")
