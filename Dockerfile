@@ -29,6 +29,12 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator3-1 \
     xdg-utils \
+    # Új függőségek
+    libxtst6 \
+    libxss1 \
+    libgtk-3-0 \
+    libnss3-tools \
+    libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Munkamappa létrehozása
@@ -42,6 +48,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/pw-browsers
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
 
 # Playwright böngésző telepítése
 RUN mkdir -p /app/pw-browsers && \
@@ -54,5 +61,5 @@ COPY . .
 # Port beállítása
 ENV PORT=10000
 
-# Xvfb és alkalmazás indítása
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 & sleep 5 && uvicorn api:app --host 0.0.0.0 --port $PORT"] 
+# Xvfb és alkalmazás indítása jobb konfigurációval
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 & sleep 5 && uvicorn api:app --host 0.0.0.0 --port $PORT"] 
